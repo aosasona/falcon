@@ -11,6 +11,7 @@ import gleam/string
 
 pub type FacquestError {
   URLParseError
+  RequestError(String)
 }
 
 pub type Url {
