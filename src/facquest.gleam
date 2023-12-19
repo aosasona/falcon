@@ -1,5 +1,6 @@
 import gleam/dict.{type Dict}
 import gleam/dynamic.{type Decoder}
+import gleam/bool
 import gleam/hackney
 import gleam/http/request
 import gleam/http.{
@@ -23,20 +24,17 @@ pub type Url {
 pub type Opts {
   Headers(List(Dict(String, String)))
   Query(List(Dict(String, String)))
+  Custom(request.Request(String))
 }
 
 fn with_leading_slash(path: String) -> String {
-  case path {
-    "/" <> _ -> path
-    _ -> "/" <> path
-  }
+  use <- bool.guard(when: string.starts_with(path, "/"), return: path)
+  "/" <> path
 }
 
 fn without_trailing_slash(path: String) -> String {
-  case string.ends_with(path, "/") {
-    True -> string.slice(path, 0, string.length(path) - 1)
-    False -> path
-  }
+  use <- bool.guard(when: !string.ends_with(path, "/"), return: path)
+  string.slice(path, 0, string.length(path) - 1)
 }
 
 fn url_to_string(url: Url) -> String {
