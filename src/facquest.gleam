@@ -7,6 +7,7 @@ import gleam/http.{
   type Method, type Scheme, Delete, Get, Patch, Post, Put, scheme_to_string,
 }
 import gleam/int
+import gleam/option.{type Option, None, Some}
 import gleam/result
 import gleam/string
 
@@ -18,7 +19,7 @@ pub type FacquestError {
 pub type Url {
   Url(String)
 
-  SplitUrl(scheme: Scheme, host: String, path: String, port: Int)
+  SplitUrl(scheme: Scheme, host: String, path: String, port: Option(Int))
 }
 
 pub type Opts {
@@ -37,15 +38,30 @@ fn without_trailing_slash(path: String) -> String {
   string.slice(path, 0, string.length(path) - 1)
 }
 
-fn url_to_string(url: Url) -> String {
+pub fn url_to_string(url: Url) -> String {
   case url {
     Url(url) -> url
     SplitUrl(scheme, raw_host, raw_path, raw_port) -> {
-      let host = without_trailing_slash(raw_host)
-      let port = int.to_string(raw_port)
-      let path = with_leading_slash(raw_path)
+      let host =
+        without_trailing_slash(raw_host)
+        |> string.trim
 
-      scheme_to_string(scheme) <> "://" <> host <> ":" <> port <> path
+      let port = case option.unwrap(raw_port, 80) {
+        80 | 443 -> ""
+        port -> ":" <> int.to_string(port)
+      }
+      let path =
+        with_leading_slash(raw_path)
+        |> string.trim
+
+      // respect port over scheme if explicitly provided
+      let normalized_scheme = case raw_port {
+        Some(443) -> "https"
+        Some(80) -> "http"
+        _ -> scheme_to_string(scheme)
+      }
+
+      normalized_scheme <> "://" <> host <> port <> path
     }
   }
 }
