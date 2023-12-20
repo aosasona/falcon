@@ -2,12 +2,12 @@ import gleam/dict.{type Dict}
 import gleam/dynamic.{type Decoder}
 import gleam/bool
 import gleam/hackney
-import gleam/http/request
+import gleam/http/request.{type Request, Request}
 import gleam/http.{
   type Method, type Scheme, Delete, Get, Patch, Post, Put, scheme_to_string,
 }
 import gleam/int
-import gleam/option.{type Option, None, Some}
+import gleam/option.{type Option, Some}
 import gleam/result
 import gleam/string
 
@@ -22,11 +22,17 @@ pub type Url {
   SplitUrl(scheme: Scheme, host: String, path: String, port: Option(Int))
 }
 
-pub type Opts {
-  Headers(List(Dict(String, String)))
-  Query(List(Dict(String, String)))
-  Custom(request.Request(String))
+pub type Pairs =
+  List(#(String, String))
+
+pub type Config {
+  Body(String)
+  Headers(Pairs)
+  Query(Pairs)
 }
+
+pub type Opts =
+  List(Config)
 
 fn with_leading_slash(path: String) -> String {
   use <- bool.guard(when: string.starts_with(path, "/"), return: path)
@@ -70,7 +76,7 @@ fn send(
   method: Method,
   url: Url,
   target: Decoder(a),
-  opts: Opts,
+  opts: List(Config),
 ) -> Result(a, FacquestError) {
   let uri = url_to_string(url)
   use req <- result.try(
@@ -78,6 +84,45 @@ fn send(
     |> result.map_error(fn(_) { URLParseError }),
   )
   todo
+}
+
+pub fn opts_to_request(
+  opts: List(Config),
+  state: Request(String),
+) -> Request(String) {
+  case opts {
+    [Body(body), ..rest] ->
+      append_body(body, state)
+      |> opts_to_request(rest, _)
+    [Headers(headers), ..rest] ->
+      append_headers(headers, state)
+      |> opts_to_request(rest, _)
+    [Query(query), ..rest] ->
+      append_queries(query, state)
+      |> opts_to_request(rest, _)
+    [] -> state
+  }
+}
+
+fn append_headers(headers: Pairs, state: Request(String)) -> Request(String) {
+  case headers {
+    [] -> state
+    [header, ..rest] -> {
+      state
+      |> request.set_header(header.0, header.1)
+      |> append_headers(rest, _)
+    }
+  }
+}
+
+fn append_queries(queries: Pairs, state: Request(String)) -> Request(String) {
+  state
+  |> request.set_query(queries)
+}
+
+fn append_body(body: String, state: Request(String)) -> Request(String) {
+  state
+  |> request.set_body(body)
 }
 
 pub fn get(to url: Url, expecting target: Decoder(a), options opts: Opts) -> a {
