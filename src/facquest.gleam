@@ -1,5 +1,4 @@
-import gleam/dict.{type Dict}
-import gleam/dynamic.{type Decoder}
+import gleam/dynamic.{type Decoder, type Dynamic}
 import gleam/bool
 import gleam/hackney
 import gleam/http/request.{type Request, Request}
@@ -7,14 +6,24 @@ import gleam/http.{
   type Method, type Scheme, Delete, Get, Patch, Post, Put, scheme_to_string,
 }
 import gleam/int
+import gleam/io
 import gleam/option.{type Option, Some}
 import gleam/result
 import gleam/string
 
+pub type FacquestResponse(a) {
+  FacquestResponse(status: Int, headers: Pairs, body: a)
+}
+
 pub type FacquestError {
   URLParseError
-  RequestError(String)
+  InvalidUtf8Response
+  HackneyError(Dynamic)
+  DecodingError(dynamic.DecodeErrors)
 }
+
+type ResultResponse(a) =
+  Result(FacquestResponse(a), FacquestError)
 
 pub type Url {
   Url(String)
@@ -33,6 +42,21 @@ pub type Config {
 
 pub type Opts =
   List(Config)
+
+pub fn error_to_string(err: FacquestError) -> String {
+  case err {
+    URLParseError -> "Invalid URL provided, unable to parse."
+    InvalidUtf8Response -> "Received invalid UTF-8 response."
+    HackneyError(e) -> {
+      io.debug(e)
+      "Something really went wrong, see logs for more info"
+    }
+    DecodingError(e) -> {
+      io.debug(e)
+      "Failed to decode response, ensure your decoder is correct. You can also use a map if you are unsure of the response structure, see the logs for more info."
+    }
+  }
+}
 
 fn with_leading_slash(path: String) -> String {
   use <- bool.guard(when: string.starts_with(path, "/"), return: path)
@@ -72,20 +96,6 @@ pub fn url_to_string(url: Url) -> String {
   }
 }
 
-fn send(
-  method: Method,
-  url: Url,
-  target: Decoder(a),
-  opts: List(Config),
-) -> Result(a, FacquestError) {
-  let uri = url_to_string(url)
-  use req <- result.try(
-    request.to(uri)
-    |> result.map_error(fn(_) { URLParseError }),
-  )
-  todo
-}
-
 pub fn opts_to_request(
   opts: List(Config),
   state: Request(String),
@@ -95,7 +105,7 @@ pub fn opts_to_request(
       append_body(body, state)
       |> opts_to_request(rest, _)
     [Headers(headers), ..rest] ->
-      append_headers(headers, state)
+      prepend_headers(headers, state)
       |> opts_to_request(rest, _)
     [Query(query), ..rest] ->
       append_queries(query, state)
@@ -104,13 +114,13 @@ pub fn opts_to_request(
   }
 }
 
-fn append_headers(headers: Pairs, state: Request(String)) -> Request(String) {
+fn prepend_headers(headers: Pairs, state: Request(String)) -> Request(String) {
   case headers {
     [] -> state
     [header, ..rest] -> {
       state
-      |> request.set_header(header.0, header.1)
-      |> append_headers(rest, _)
+      |> request.prepend_header(header.0, header.1)
+      |> prepend_headers(rest, _)
     }
   }
 }
@@ -125,8 +135,47 @@ fn append_body(body: String, state: Request(String)) -> Request(String) {
   |> request.set_body(body)
 }
 
-pub fn get(to url: Url, expecting target: Decoder(a), options opts: Opts) -> a {
-  todo
+fn send(
+  method: Method,
+  url: Url,
+  decode: Decoder(a),
+  opts: List(Config),
+) -> Result(FacquestResponse(a), FacquestError) {
+  let uri = url_to_string(url)
+  use req <- result.try(
+    request.to(uri)
+    |> result.map_error(fn(_) { URLParseError }),
+  )
+
+  use resp <- result.try(
+    req
+    |> request.set_method(method)
+    |> opts_to_request(opts, _)
+    |> hackney.send
+    |> result.map_error(fn(err) {
+      case err {
+        hackney.InvalidUtf8Response -> InvalidUtf8Response
+        hackney.Other(e) -> HackneyError(e)
+      }
+    }),
+  )
+
+  use body <- result.try(
+    resp.body
+    |> dynamic.from
+    |> decode
+    |> result.map_error(fn(err) { DecodingError(err) }),
+  )
+
+  Ok(FacquestResponse(status: resp.status, headers: resp.headers, body: body))
+}
+
+pub fn get(
+  to url: Url,
+  expecting target: Decoder(a),
+  options opts: Opts,
+) -> ResultResponse(a) {
+  send(Get, url, target, opts)
 }
 
 pub fn post(
@@ -134,8 +183,8 @@ pub fn post(
   body body: String,
   expecting target: Decoder(a),
   options opts: Opts,
-) -> a {
-  todo
+) -> ResultResponse(a) {
+  send(Post, url, target, [Body(body), ..opts])
 }
 
 pub fn put(
@@ -143,8 +192,8 @@ pub fn put(
   body body: String,
   expecting target: Decoder(a),
   options opts: Opts,
-) -> a {
-  todo
+) -> ResultResponse(a) {
+  send(Put, url, target, [Body(body), ..opts])
 }
 
 pub fn patch(
@@ -152,14 +201,14 @@ pub fn patch(
   body body: String,
   expecting target: Decoder(a),
   options opts: Opts,
-) -> a {
-  todo
+) -> ResultResponse(a) {
+  send(Patch, url, target, [Body(body), ..opts])
 }
 
 pub fn delete(
   to url: Url,
   expecting target: Decoder(a),
   options opts: Opts,
-) -> a {
-  todo
+) -> ResultResponse(a) {
+  send(Delete, url, target, opts)
 }
