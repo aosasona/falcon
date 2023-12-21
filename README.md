@@ -3,6 +3,8 @@
 [![Package Version](https://img.shields.io/hexpm/v/facquest)](https://hex.pm/packages/facquest)
 [![Hex Docs](https://img.shields.io/badge/hex-docs-ffaff3)](https://hexdocs.pm/facquest/)
 
+> NOTE: part of the hackney bindings were taken from the official Gleam hackney bindings and modified
+
 ## Quick start
 
 ```sh
