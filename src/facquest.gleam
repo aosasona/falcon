@@ -3,6 +3,7 @@ import facquest/core.{
   Url,
 }
 import gleam/dynamic.{type Decoder}
+import gleam/bool
 import gleam/list
 import gleam/http.{type Method, Delete, Get, Patch, Post, Put}
 import gleam/option.{type Option, None, Some}
@@ -22,13 +23,50 @@ pub fn new(
   Client(base_url: base_url, headers: headers, timeout: timeout)
 }
 
-// TODO: test
-fn merge_opts(client: Client, opts: Opts) -> Opts {
-  case client.timeout {
-    Some(timeout) -> list.concat([opts, [ClientOptions([Timeout(timeout)])]])
+fn filter_opts(opts: Opts, keep_headers keep_headers: Bool) -> Opts {
+  opts
+  |> list.filter(fn(opt) {
+    use <- bool.guard(when: keep_headers, return: case opt {
+      Headers(_) -> True
+      _ -> False
+    })
+
+    case opt {
+      Headers(_) -> False
+      _ -> True
+    }
+  })
+}
+
+pub fn extract_headers(opts: Opts) -> List(#(String, String)) {
+  opts
+  |> list.map(fn(opt) {
+    case opt {
+      Headers(headers) -> headers
+      _ -> []
+    }
+  })
+  |> list.concat
+}
+
+pub fn merge_opts(client: Client, opts: Opts) -> Opts {
+  // There is a chance this will cause problems if you pass in a timeout in the client and another timeout in the options simply because we are not filtering out duplicates at the moment seeing as it might be too expensive to do that with every single request (it is nested - we'd have to look into opts and then filter out timeout from every single client options before putting them back together)
+  let new_opts = case client.timeout {
+    Some(timeout) -> list.concat([[ClientOptions([Timeout(timeout)])], opts])
     None -> opts
   }
-  |> fn(new_opts) { list.concat([[Headers(client.headers)], new_opts]) }
+
+  // Merge all headers into one list
+  let headers =
+    new_opts
+    |> filter_opts(keep_headers: True)
+    |> extract_headers
+    |> fn(headers) { list.concat([client.headers, headers]) }
+
+  // Remove all headers from the original list and replace with the merged list
+  new_opts
+  |> filter_opts(keep_headers: False)
+  |> fn(new_opts) { list.concat([[Headers(headers)], new_opts]) }
 }
 
 pub fn send(
