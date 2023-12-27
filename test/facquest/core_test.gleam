@@ -1,7 +1,7 @@
 import gleam/http.{Http, Https}
 import gleeunit/should
 import gleam/option.{None, Some}
-import facquest/core.{SplitUrl, url_to_string}
+import facquest/core.{SplitUrl, Url, append_path, url_to_string}
 
 pub fn url_to_string_test() {
   // http with None port
@@ -88,4 +88,43 @@ pub fn url_to_string_test() {
   )
   |> url_to_string
   |> should.equal("http://example.com/trailing-host-slash")
+}
+
+pub fn append_path_test() {
+  SplitUrl(host: "example.com", path: "/", scheme: Https, port: None)
+  |> append_path("test")
+  |> url_to_string
+  |> should.equal("https://example.com/test")
+
+  SplitUrl(host: "example.com", path: "/", scheme: Https, port: None)
+  |> append_path("/test")
+  |> url_to_string
+  |> should.equal("https://example.com/test")
+
+  SplitUrl(host: "example.com", path: "/existing/", scheme: Https, port: None)
+  |> append_path("new")
+  |> url_to_string
+  |> should.equal("https://example.com/existing/new")
+
+  SplitUrl(host: "example.com", path: "/existing/", scheme: Https, port: None)
+  |> append_path("/new")
+  |> url_to_string
+  |> should.equal("https://example.com/existing/new")
+
+  Url("https://example.com/url/")
+  |> append_path("appended")
+  |> url_to_string
+  |> should.equal("https://example.com/url/appended")
+
+  Url("https://example.com:9000/url/another")
+  |> append_path("another-appended-one")
+  |> url_to_string
+  |> should.equal("https://example.com:9000/url/another/another-appended-one")
+
+  Url("https://example.com:9000/url/another/")
+  |> append_path("another-appended-one-for-trailing-slash")
+  |> url_to_string
+  |> should.equal(
+    "https://example.com:9000/url/another/another-appended-one-for-trailing-slash",
+  )
 }
