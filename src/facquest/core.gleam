@@ -23,7 +23,7 @@ pub type FacquestError {
   DecodingError(dynamic.DecodeErrors)
 }
 
-type ResultResponse(a) =
+pub type ResultResponse(a) =
   Result(FacquestResponse(a), FacquestError)
 
 pub type Url {
@@ -80,13 +80,35 @@ pub fn error_to_string(err: FacquestError) -> String {
 }
 
 fn with_leading_slash(path: String) -> String {
-  use <- bool.guard(when: string.starts_with(path, "/"), return: path)
-  "/" <> path
+  {
+    use <- bool.guard(when: string.starts_with(path, "/"), return: path)
+    "/" <> path
+  }
+  |> string.trim
 }
 
 fn without_trailing_slash(path: String) -> String {
-  use <- bool.guard(when: !string.ends_with(path, "/"), return: path)
-  string.slice(path, 0, string.length(path) - 1)
+  {
+    use <- bool.guard(when: !string.ends_with(path, "/"), return: path)
+    string.slice(path, 0, string.length(path) - 1)
+  }
+  |> string.trim
+}
+
+pub fn append_path(url: Url, path: String) -> Url {
+  case url {
+    Url(url) ->
+      url
+      |> without_trailing_slash
+      |> fn(url) { url <> with_leading_slash(path) }
+      |> Url
+
+    SplitUrl(scheme, host, raw_path, port) ->
+      raw_path
+      |> without_trailing_slash
+      |> fn(normalized_path) { normalized_path <> with_leading_slash(path) }
+      |> SplitUrl(scheme: scheme, host: host, port: port)
+  }
 }
 
 pub fn url_to_string(url: Url) -> String {
@@ -160,11 +182,11 @@ fn append_body(body: String, state: Request(String)) -> Request(String) {
   |> request.set_body(body)
 }
 
-fn send(
-  method: Method,
-  url: Url,
-  decode: Decoder(a),
-  opts: List(Config),
+pub fn send(
+  method method: Method,
+  url url: Url,
+  expecting decode: Decoder(a),
+  options opts: List(Config),
 ) -> Result(FacquestResponse(a), FacquestError) {
   let uri = url_to_string(url)
   use req <- result.try(
