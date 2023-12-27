@@ -7,6 +7,7 @@ import gleam/http.{
 }
 import gleam/int
 import gleam/io
+import gleam/json
 import gleam/list
 import gleam/option.{type Option, Some}
 import gleam/result
@@ -20,11 +21,17 @@ pub type FacquestError {
   URLParseError
   InvalidUtf8Response
   HackneyError(Dynamic)
-  DecodingError(dynamic.DecodeErrors)
+  RawDecodingError(dynamic.DecodeErrors)
+  JsonDecodingError(json.DecodeError)
 }
 
 pub type ResultResponse(a) =
   Result(FacquestResponse(a), FacquestError)
+
+pub type Target(a) {
+  Json(Decoder(a))
+  Raw(Decoder(a))
+}
 
 pub type Url {
   Url(String)
@@ -72,9 +79,13 @@ pub fn error_to_string(err: FacquestError) -> String {
       io.debug(e)
       "Something really went wrong, see logs for more info"
     }
-    DecodingError(e) -> {
+    RawDecodingError(e) -> {
       io.debug(e)
       "Failed to decode response, ensure your decoder is correct. You can also use a map if you are unsure of the response structure, see the logs for more info."
+    }
+    JsonDecodingError(e) -> {
+      io.debug(e)
+      "Failed to decode response into JSON, ensure your decoder is correct. You can also use a map if you are unsure of the response structure, see the logs for more info."
     }
   }
 }
@@ -185,7 +196,7 @@ fn append_body(body: String, state: Request(String)) -> Request(String) {
 pub fn send(
   method method: Method,
   url url: Url,
-  expecting decode: Decoder(a),
+  expecting decode: Target(a),
   options opts: List(Config),
 ) -> Result(FacquestResponse(a), FacquestError) {
   let uri = url_to_string(url)
@@ -211,11 +222,23 @@ pub fn send(
     }),
   )
 
+  let decode_body = case decode {
+    Json(decoder) -> fn(d) {
+      d
+      |> json.decode(decoder)
+      |> result.map_error(fn(err) { JsonDecodingError(err) })
+    }
+    Raw(decoder) -> fn(d) {
+      d
+      |> dynamic.from
+      |> decoder
+      |> result.map_error(fn(err) { RawDecodingError(err) })
+    }
+  }
+
   use body <- result.try(
     resp.body
-    |> dynamic.from
-    |> decode
-    |> result.map_error(fn(err) { DecodingError(err) }),
+    |> decode_body,
   )
 
   Ok(FacquestResponse(status: resp.status, headers: resp.headers, body: body))
@@ -223,7 +246,7 @@ pub fn send(
 
 pub fn get(
   to url: Url,
-  expecting target: Decoder(a),
+  expecting target: Target(a),
   options opts: Opts,
 ) -> ResultResponse(a) {
   send(Get, url, target, opts)
@@ -232,7 +255,7 @@ pub fn get(
 pub fn post(
   to url: Url,
   body body: String,
-  expecting target: Decoder(a),
+  expecting target: Target(a),
   options opts: Opts,
 ) -> ResultResponse(a) {
   send(Post, url, target, [to_body(body), ..opts])
@@ -241,7 +264,7 @@ pub fn post(
 pub fn put(
   to url: Url,
   body body: String,
-  expecting target: Decoder(a),
+  expecting target: Target(a),
   options opts: Opts,
 ) -> ResultResponse(a) {
   send(Put, url, target, [to_body(body), ..opts])
@@ -250,7 +273,7 @@ pub fn put(
 pub fn patch(
   to url: Url,
   body body: String,
-  expecting target: Decoder(a),
+  expecting target: Target(a),
   options opts: Opts,
 ) -> ResultResponse(a) {
   send(Patch, url, target, [to_body(body), ..opts])
@@ -258,7 +281,7 @@ pub fn patch(
 
 pub fn delete(
   to url: Url,
-  expecting target: Decoder(a),
+  expecting target: Target(a),
   options opts: Opts,
 ) -> ResultResponse(a) {
   send(Delete, url, target, opts)

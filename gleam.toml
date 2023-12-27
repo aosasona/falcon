@@ -14,6 +14,7 @@ repository = { type = "github", user = "trulyao", repo = "facquest" }
 gleam_stdlib = "~> 0.34"
 gleam_http = "~> 3.5"
 hackney = "~> 1.20"
+gleam_json = "~> 0.7"
 
 [dev-dependencies]
 gleeunit = "~> 1.0"

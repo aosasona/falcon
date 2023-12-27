@@ -1,8 +1,7 @@
 import facquest/core.{
-  type Opts, type Pairs, type ResultResponse, type Url, ClientOptions, Headers,
-  Url,
+  type Opts, type Pairs, type ResultResponse, type Target, type Url,
+  ClientOptions, Headers, Url,
 }
-import gleam/dynamic.{type Decoder}
 import gleam/bool
 import gleam/list
 import gleam/http.{type Method, Delete, Get, Patch, Post, Put}
@@ -70,11 +69,11 @@ pub fn merge_opts(client: Client, opts: Opts) -> Opts {
 }
 
 pub fn send(
-  client: Client,
-  method: Method,
-  path: String,
-  target: Decoder(a),
-  opts: Opts,
+  client client: Client,
+  method method: Method,
+  path path: String,
+  expecting target: Target(a),
+  options opts: Opts,
 ) -> ResultResponse(a) {
   client.base_url
   |> core.append_path(path)
@@ -88,7 +87,7 @@ pub fn send(
 pub fn get(
   client client: Client,
   path path: String,
-  expecting target: Decoder(a),
+  expecting target: Target(a),
   options opts: Opts,
 ) -> ResultResponse(a) {
   client
@@ -99,7 +98,7 @@ pub fn post(
   client client: Client,
   path path: String,
   body body: String,
-  expecting target: Decoder(a),
+  expecting target: Target(a),
   options opts: Opts,
 ) -> ResultResponse(a) {
   client
@@ -110,7 +109,7 @@ pub fn put(
   client client: Client,
   path path: String,
   body body: String,
-  expecting target: Decoder(a),
+  expecting target: Target(a),
   options opts: Opts,
 ) -> ResultResponse(a) {
   client
@@ -121,7 +120,7 @@ pub fn patch(
   client client: Client,
   path path: String,
   body body: String,
-  expecting target: Decoder(a),
+  expecting target: Target(a),
   options opts: Opts,
 ) -> ResultResponse(a) {
   client
@@ -131,7 +130,7 @@ pub fn patch(
 pub fn delete(
   client client: Client,
   path path: String,
-  expecting target: Decoder(a),
+  expecting target: Target(a),
   options opts: Opts,
 ) -> ResultResponse(a) {
   client

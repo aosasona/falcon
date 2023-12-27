@@ -1,14 +1,72 @@
 import gleeunit
 import gleeunit/should
+import gleam/io
 import gleam/list
+import gleam/dynamic
 import gleam/option.{type Option, None, Some}
-import gleam/result
+import gleam/result.{try}
 import facquest.{extract_headers, merge_opts, new}
-import facquest/core.{type Opts, ClientOptions, Headers, Url}
+import facquest/core.{type Opts, ClientOptions, Headers, Json, Url}
 import facquest/hackney.{Timeout}
 
 pub fn main() {
   gleeunit.main()
+}
+
+pub type Product {
+  Product(
+    id: Int,
+    title: String,
+    description: String,
+    price: Int,
+    discount_percentage: Float,
+    rating: Float,
+    stock: Int,
+    brand: String,
+    category: String,
+    thumbnail: String,
+    images: List(String),
+  )
+}
+
+pub fn client_test() {
+  let client = facquest.new(Url("https://dummyjson.com/"), [], None)
+
+  let decoder = fn(d) {
+    use id <- try(dynamic.field("id", dynamic.int)(d))
+    use title <- try(dynamic.field("title", dynamic.string)(d))
+    use description <- try(dynamic.field("description", dynamic.string)(d))
+    use price <- try(dynamic.field("price", dynamic.int)(d))
+    use discount_percentage <- try(dynamic.field(
+      "discountPercentage",
+      dynamic.float,
+    )(d))
+    use rating <- try(dynamic.field("rating", dynamic.float)(d))
+    use stock <- try(dynamic.field("stock", dynamic.int)(d))
+    use brand <- try(dynamic.field("brand", dynamic.string)(d))
+    use category <- try(dynamic.field("category", dynamic.string)(d))
+    use thumbnail <- try(dynamic.field("thumbnail", dynamic.string)(d))
+    use images <- try(dynamic.field("images", dynamic.list(dynamic.string))(d))
+
+    Ok(Product(
+      id,
+      title,
+      description,
+      price,
+      discount_percentage,
+      rating,
+      stock,
+      brand,
+      category,
+      thumbnail,
+      images,
+    ))
+  }
+
+  client
+  |> facquest.get("/products/1", Json(decoder), [])
+  |> io.debug
+  |> should.be_ok
 }
 
 fn extract_timeout(
