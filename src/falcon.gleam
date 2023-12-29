@@ -1,18 +1,18 @@
-import facquest/core.{
+import falcon/core.{
   type Opts, type Pairs, type Target, type Url, ClientOptions, Headers, Url,
 }
 import gleam/bool
 import gleam/list
 import gleam/http.{type Method, Delete, Get, Patch, Post, Put}
 import gleam/option.{type Option, None, Some}
-import facquest/hackney.{Timeout}
+import falcon/hackney.{Timeout}
 
 // Re-export the core types for convenience
-pub type FacquestResponse(a) =
-  core.FacquestResponse(a)
+pub type FalconResponse(a) =
+  core.FalconResponse(a)
 
-pub type FacquestError =
-  core.FacquestError
+pub type FalconError =
+  core.FalconError
 
 pub type ResultResponse(a) =
   core.ResultResponse(a)

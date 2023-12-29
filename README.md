@@ -1,7 +1,7 @@
-# facquest
+# falcon
 
-[![Package Version](https://img.shields.io/hexpm/v/facquest)](https://hex.pm/packages/facquest)
-[![Hex Docs](https://img.shields.io/badge/hex-docs-ffaff3)](https://hexdocs.pm/facquest/)
+[![Package Version](https://img.shields.io/hexpm/v/falcon)](https://hex.pm/packages/falcon)
+[![Hex Docs](https://img.shields.io/badge/hex-docs-ffaff3)](https://hexdocs.pm/falcon/)
 
 > ⚠️ WARNING: This package has not been thoroughly tested yet, please report any bugs you run into. I will work on adding tests in the future but the version you are currently looking at with this warning was made in constrained time to use in a project
 
@@ -10,18 +10,18 @@
 This package can be added to your Gleam project:
 
 ```sh
-gleam add facquest
+gleam add falcon
 ```
 
-and its documentation can be found at <https://hexdocs.pm/facquest>.
+and its documentation can be found at <https://hexdocs.pm/falcon>.
 
 ## Usage
 
 > This package has not been documented, have a look in the [test](./test/) folder for more examples.
 
 ```gleam
-import facquest.{type FacquestResponse}
-import facquest/core.{Json, Url}
+import falcon.{type FalconResponse}
+import falcon/core.{Json, Url}
 import gleam/dynamic
 import gleam/io
 import gleeunit/should
@@ -39,16 +39,16 @@ pub fn main() {
     )
 
   let client =
-    facquest.new(
+    falcon.new(
       base_url: Url("https://dummyjson.com/"),
       headers: [],
-      timeout: facquest.default_timeout,
+      timeout: falcon.default_timeout,
     )
 
   client
-  |> facquest.get("/products/1", expecting: Json(decoder), options: [])
+  |> falcon.get("/products/1", expecting: Json(decoder), options: [])
   |> should.be_ok
-  |> fn(res: FacquestResponse(PartialProduct)) { res.body }
+  |> fn(res: FalconResponse(PartialProduct)) { res.body }
   |> io.debug
 }
 

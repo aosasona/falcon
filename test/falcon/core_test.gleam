@@ -1,7 +1,7 @@
 import gleam/http.{Http, Https}
 import gleeunit/should
 import gleam/option.{None, Some}
-import facquest/core.{SplitUrl, Url, append_path, url_to_string}
+import falcon/core.{SplitUrl, Url, append_path, url_to_string}
 
 pub fn url_to_string_test() {
   // http with None port

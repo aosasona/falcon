@@ -5,11 +5,11 @@ import gleam/dynamic
 import gleam/json
 import gleam/option.{type Option, None, Some}
 import gleam/result.{try}
-import facquest.{extract_headers, merge_opts, new}
-import facquest/core.{
-  type FacquestResponse, type Opts, ClientOptions, Headers, Json, Url,
+import falcon.{extract_headers, merge_opts, new}
+import falcon/core.{
+  type FalconResponse, type Opts, ClientOptions, Headers, Json, Url,
 }
-import facquest/hackney.{Timeout}
+import falcon/hackney.{Timeout}
 
 pub fn main() {
   gleeunit.main()
@@ -83,18 +83,18 @@ fn encode(product: Product) {
 
 // Labels have been used to make the test more readable
 fn make_client() {
-  facquest.new(
+  falcon.new(
     base_url: Url("https://dummyjson.com/"),
     headers: [#("content-type", "application/json")],
-    timeout: facquest.default_timeout,
+    timeout: falcon.default_timeout,
   )
 }
 
 pub fn get_test() {
   make_client()
-  |> facquest.get("/products/1", expecting: Json(decoder), options: [])
+  |> falcon.get("/products/1", expecting: Json(decoder), options: [])
   |> should.be_ok
-  |> fn(res: FacquestResponse(Product)) {
+  |> fn(res: FalconResponse(Product)) {
     let data = res.body
     #(data.id, data.title, data.price, data.discount_percentage, data.brand)
   }
@@ -106,7 +106,7 @@ pub fn post_test() {
     Product(
       id: None,
       title: "Gleam stickers",
-      description: "facquest test",
+      description: "falcon test",
       price: 2,
       discount_percentage: None,
       rating: 3.8,
@@ -123,9 +123,9 @@ pub fn post_test() {
     |> json.to_string
 
   make_client()
-  |> facquest.post("/products/add", body, Json(decoder), options: [])
+  |> falcon.post("/products/add", body, Json(decoder), options: [])
   |> should.be_ok
-  |> fn(res: FacquestResponse(Product)) { res.body }
+  |> fn(res: FalconResponse(Product)) { res.body }
   |> should.equal(Product(..product, id: Some(101)))
 }
 
@@ -137,19 +137,19 @@ pub fn patch_put_test() {
     ])
     |> json.to_string
 
-  let extract = fn(res: FacquestResponse(Product)) {
+  let extract = fn(res: FalconResponse(Product)) {
     let data = res.body
     #(data.id, data.title, data.price)
   }
 
   make_client()
-  |> facquest.patch("/products/1", body, expecting: Json(decoder), options: [])
+  |> falcon.patch("/products/1", body, expecting: Json(decoder), options: [])
   |> should.be_ok
   |> extract
   |> should.equal(#(Some(1), "Not iPhone 9", 999))
 
   make_client()
-  |> facquest.put("/products/1", body, expecting: Json(decoder), options: [])
+  |> falcon.put("/products/1", body, expecting: Json(decoder), options: [])
   |> should.be_ok
   |> extract
   |> should.equal(#(Some(1), "Not iPhone 9", 999))
@@ -168,9 +168,9 @@ pub fn delete_test() {
     )
 
   make_client()
-  |> facquest.delete("/products/1", expecting: Json(resp_decoder), options: [])
+  |> falcon.delete("/products/1", expecting: Json(resp_decoder), options: [])
   |> should.be_ok
-  |> fn(res: FacquestResponse(PartialDeleteResponse)) { res.body }
+  |> fn(res: FalconResponse(PartialDeleteResponse)) { res.body }
   |> should.equal(PartialDeleteResponse(id: 1, is_deleted: True))
 }
 

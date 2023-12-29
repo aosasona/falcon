@@ -1,6 +1,6 @@
 import gleam/dynamic.{type Decoder, type Dynamic}
 import gleam/bool
-import facquest/hackney
+import falcon/hackney
 import gleam/http/request.{type Request, Request}
 import gleam/http.{
   type Method, type Scheme, Delete, Get, Patch, Post, Put, scheme_to_string,
@@ -13,11 +13,11 @@ import gleam/option.{type Option, Some}
 import gleam/result
 import gleam/string
 
-pub type FacquestResponse(a) {
-  FacquestResponse(status: Int, headers: Pairs, body: a)
+pub type FalconResponse(a) {
+  FalconResponse(status: Int, headers: Pairs, body: a)
 }
 
-pub type FacquestError {
+pub type FalconError {
   URLParseError
   InvalidUtf8Response
   HackneyError(Dynamic)
@@ -26,7 +26,7 @@ pub type FacquestError {
 }
 
 pub type ResultResponse(a) =
-  Result(FacquestResponse(a), FacquestError)
+  Result(FalconResponse(a), FalconError)
 
 pub type Target(a) {
   Json(Decoder(a))
@@ -72,8 +72,8 @@ pub fn to_body(body: String) -> Config {
   Body(OpaqueBody(body))
 }
 
-/// Convert a FacquestError to a string for display - some errors like HackneyError are not very helpful to the end user and are logged instead
-pub fn error_to_string(err: FacquestError) -> String {
+/// Convert a FalconError to a string for display - some errors like HackneyError are not very helpful to the end user and are logged instead
+pub fn error_to_string(err: FalconError) -> String {
   case err {
     URLParseError -> "Invalid URL provided, unable to parse."
     InvalidUtf8Response -> "Received invalid UTF-8 response."
@@ -195,15 +195,15 @@ fn append_body(body: String, state: Request(String)) -> Request(String) {
   |> request.set_body(body)
 }
 
-pub fn extract_body(response: FacquestResponse(a)) -> a {
+pub fn extract_body(response: FalconResponse(a)) -> a {
   response.body
 }
 
-pub fn extract_headers(response: FacquestResponse(a)) -> Pairs {
+pub fn extract_headers(response: FalconResponse(a)) -> Pairs {
   response.headers
 }
 
-pub fn extract_status_code(response: FacquestResponse(a)) -> Int {
+pub fn extract_status_code(response: FalconResponse(a)) -> Int {
   response.status
 }
 
@@ -213,7 +213,7 @@ pub fn send(
   url url: Url,
   expecting decode: Target(a),
   options opts: List(Config),
-) -> Result(FacquestResponse(a), FacquestError) {
+) -> Result(FalconResponse(a), FalconError) {
   let uri = url_to_string(url)
   use req <- result.try(
     request.to(uri)
@@ -256,7 +256,7 @@ pub fn send(
     |> decode_body,
   )
 
-  Ok(FacquestResponse(status: resp.status, headers: resp.headers, body: body))
+  Ok(FalconResponse(status: resp.status, headers: resp.headers, body: body))
 }
 
 pub fn get(

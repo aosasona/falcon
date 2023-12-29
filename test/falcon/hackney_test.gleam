@@ -1,4 +1,4 @@
-import facquest/hackney
+import falcon/hackney
 import gleam/http.{Get, Head, Options}
 import gleam/http/request
 import gleam/http/response
