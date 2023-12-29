@@ -1,12 +1,14 @@
 import gleeunit
 import gleeunit/should
-import gleam/io
 import gleam/list
 import gleam/dynamic
+import gleam/json
 import gleam/option.{type Option, None, Some}
 import gleam/result.{try}
 import facquest.{extract_headers, merge_opts, new}
-import facquest/core.{type Opts, ClientOptions, Headers, Json, Url}
+import facquest/core.{
+  type FacquestResponse, type Opts, ClientOptions, Headers, Json, Url,
+}
 import facquest/hackney.{Timeout}
 
 pub fn main() {
@@ -15,11 +17,11 @@ pub fn main() {
 
 pub type Product {
   Product(
-    id: Int,
+    id: Option(Int),
     title: String,
     description: String,
     price: Int,
-    discount_percentage: Float,
+    discount_percentage: Option(Float),
     rating: Float,
     stock: Int,
     brand: String,
@@ -29,44 +31,147 @@ pub type Product {
   )
 }
 
-pub fn client_test() {
-  let client = facquest.new(Url("https://dummyjson.com/"), [], None)
+fn decoder(d) {
+  use id <- try(dynamic.optional_field("id", dynamic.int)(d))
+  use title <- try(dynamic.field("title", dynamic.string)(d))
+  use description <- try(dynamic.field("description", dynamic.string)(d))
+  use price <- try(dynamic.field("price", dynamic.int)(d))
+  use discount_percentage <- try(dynamic.optional_field(
+    "discountPercentage",
+    dynamic.float,
+  )(d))
+  use rating <- try(dynamic.field("rating", dynamic.float)(d))
+  use stock <- try(dynamic.field("stock", dynamic.int)(d))
+  use brand <- try(dynamic.field("brand", dynamic.string)(d))
+  use category <- try(dynamic.field("category", dynamic.string)(d))
+  use thumbnail <- try(dynamic.field("thumbnail", dynamic.string)(d))
+  use images <- try(dynamic.field("images", dynamic.list(dynamic.string))(d))
 
-  let decoder = fn(d) {
-    use id <- try(dynamic.field("id", dynamic.int)(d))
-    use title <- try(dynamic.field("title", dynamic.string)(d))
-    use description <- try(dynamic.field("description", dynamic.string)(d))
-    use price <- try(dynamic.field("price", dynamic.int)(d))
-    use discount_percentage <- try(dynamic.field(
+  Ok(Product(
+    id,
+    title,
+    description,
+    price,
+    discount_percentage,
+    rating,
+    stock,
+    brand,
+    category,
+    thumbnail,
+    images,
+  ))
+}
+
+fn encode(product: Product) {
+  json.object([
+    #("id", json.nullable(from: product.id, of: json.int)),
+    #("title", json.string(product.title)),
+    #("description", json.string(product.description)),
+    #("price", json.int(product.price)),
+    #(
       "discountPercentage",
-      dynamic.float,
-    )(d))
-    use rating <- try(dynamic.field("rating", dynamic.float)(d))
-    use stock <- try(dynamic.field("stock", dynamic.int)(d))
-    use brand <- try(dynamic.field("brand", dynamic.string)(d))
-    use category <- try(dynamic.field("category", dynamic.string)(d))
-    use thumbnail <- try(dynamic.field("thumbnail", dynamic.string)(d))
-    use images <- try(dynamic.field("images", dynamic.list(dynamic.string))(d))
+      json.nullable(from: product.discount_percentage, of: json.float),
+    ),
+    #("rating", json.float(product.rating)),
+    #("stock", json.int(product.stock)),
+    #("brand", json.string(product.brand)),
+    #("category", json.string(product.category)),
+    #("thumbnail", json.string(product.thumbnail)),
+    #("images", json.array(from: product.images, of: json.string)),
+  ])
+}
 
-    Ok(Product(
-      id,
-      title,
-      description,
-      price,
-      discount_percentage,
-      rating,
-      stock,
-      brand,
-      category,
-      thumbnail,
-      images,
-    ))
+// Labels have been used to make the test more readable
+fn make_client() {
+  facquest.new(
+    base_url: Url("https://dummyjson.com/"),
+    headers: [#("content-type", "application/json")],
+    timeout: facquest.default_timeout,
+  )
+}
+
+pub fn get_test() {
+  make_client()
+  |> facquest.get("/products/1", expecting: Json(decoder), options: [])
+  |> should.be_ok
+  |> fn(res: FacquestResponse(Product)) {
+    let data = res.body
+    #(data.id, data.title, data.price, data.discount_percentage, data.brand)
+  }
+  |> should.equal(#(Some(1), "iPhone 9", 549, Some(12.96), "Apple"))
+}
+
+pub fn post_test() {
+  let product =
+    Product(
+      id: None,
+      title: "Gleam stickers",
+      description: "facquest test",
+      price: 2,
+      discount_percentage: None,
+      rating: 3.8,
+      stock: 1,
+      brand: "Gleam",
+      category: "Stickers",
+      thumbnail: "https://example.com/gleam.png",
+      images: [],
+    )
+
+  let body =
+    product
+    |> encode
+    |> json.to_string
+
+  make_client()
+  |> facquest.post("/products/add", body, Json(decoder), options: [])
+  |> should.be_ok
+  |> fn(res: FacquestResponse(Product)) { res.body }
+  |> should.equal(Product(..product, id: Some(101)))
+}
+
+pub fn patch_put_test() {
+  let body =
+    json.object([
+      #("title", json.string("Not iPhone 9")),
+      #("price", json.int(999)),
+    ])
+    |> json.to_string
+
+  let extract = fn(res: FacquestResponse(Product)) {
+    let data = res.body
+    #(data.id, data.title, data.price)
   }
 
-  client
-  |> facquest.get("/products/1", Json(decoder), [])
-  |> io.debug
+  make_client()
+  |> facquest.patch("/products/1", body, expecting: Json(decoder), options: [])
   |> should.be_ok
+  |> extract
+  |> should.equal(#(Some(1), "Not iPhone 9", 999))
+
+  make_client()
+  |> facquest.put("/products/1", body, expecting: Json(decoder), options: [])
+  |> should.be_ok
+  |> extract
+  |> should.equal(#(Some(1), "Not iPhone 9", 999))
+}
+
+pub type PartialDeleteResponse {
+  PartialDeleteResponse(id: Int, is_deleted: Bool)
+}
+
+pub fn delete_test() {
+  let resp_decoder =
+    dynamic.decode2(
+      PartialDeleteResponse,
+      dynamic.field("id", dynamic.int),
+      dynamic.field("isDeleted", dynamic.bool),
+    )
+
+  make_client()
+  |> facquest.delete("/products/1", expecting: Json(resp_decoder), options: [])
+  |> should.be_ok
+  |> fn(res: FacquestResponse(PartialDeleteResponse)) { res.body }
+  |> should.equal(PartialDeleteResponse(id: 1, is_deleted: True))
 }
 
 fn extract_timeout(
