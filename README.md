@@ -20,8 +20,8 @@ and its documentation can be found at <https://hexdocs.pm/facquest>.
 > This package has not been documented, have a look in the [test](./test/) folder for more examples.
 
 ```gleam
-import facquest
-import facquest/core.{type FacquestResponse, Json, Url}
+import facquest.{type FacquestResponse}
+import facquest/core.{Json, Url}
 import gleam/dynamic
 import gleam/io
 import gleeunit/should

@@ -1,6 +1,5 @@
 import facquest/core.{
-  type Opts, type Pairs, type ResultResponse, type Target, type Url,
-  ClientOptions, Headers, Url,
+  type Opts, type Pairs, type Target, type Url, ClientOptions, Headers, Url,
 }
 import gleam/bool
 import gleam/list
@@ -8,7 +7,17 @@ import gleam/http.{type Method, Delete, Get, Patch, Post, Put}
 import gleam/option.{type Option, None, Some}
 import facquest/hackney.{Timeout}
 
-pub const default_timeout: Option(Int) = Some(10_000)
+// Re-export the core types for convenience
+pub type FacquestResponse(a) =
+  core.FacquestResponse(a)
+
+pub type FacquestError =
+  core.FacquestError
+
+pub type ResultResponse(a) =
+  core.ResultResponse(a)
+
+pub const default_timeout: Option(Int) = Some(15_000)
 
 pub opaque type Client {
   Client(base_url: Url, headers: Pairs, timeout: Option(Int))
@@ -48,6 +57,7 @@ pub fn extract_headers(opts: Opts) -> List(#(String, String)) {
   |> list.concat
 }
 
+/// This is used internally to merge the client options with the request options, it is only exposed for testing purposes
 pub fn merge_opts(client: Client, opts: Opts) -> Opts {
   // There is a chance this will cause problems if you pass in a timeout in the client and another timeout in the options simply because we are not filtering out duplicates at the moment seeing as it might be too expensive to do that with every single request (it is nested - we'd have to look into opts and then filter out timeout from every single client options before putting them back together)
   let new_opts = case client.timeout {
@@ -68,6 +78,7 @@ pub fn merge_opts(client: Client, opts: Opts) -> Opts {
   |> fn(new_opts) { list.concat([[Headers(headers)], new_opts]) }
 }
 
+/// A way to send a request with a client, you would normally want to use the convenience functions (get, post, put, patch, delete) instead
 pub fn send(
   client client: Client,
   method method: Method,

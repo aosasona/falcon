@@ -34,8 +34,10 @@ pub type Target(a) {
 }
 
 pub type Url {
+  // A fully qualified URL
   Url(String)
 
+  // A URL that has been split into its constituent parts
   SplitUrl(scheme: Scheme, host: String, path: String, port: Option(Int))
 }
 
@@ -59,7 +61,7 @@ pub type Config {
 pub type Opts =
   List(Config)
 
-/// This exists to prevent the body from being added manually to requests like Get and Delete which don't support bodies
+/// This exists to prevent the body from being added manually to requests like Get and Delete which don't support bodies.
 /// Since a user cannot create an OpaqueBody, they cannot add a body to a request that doesn't support it
 pub opaque type OpaqueBody {
   OpaqueBody(String)
@@ -70,7 +72,7 @@ pub fn to_body(body: String) -> Config {
   Body(OpaqueBody(body))
 }
 
-/// convert a FacquestError to a string for display - some errors like HackneyError are not very helpful to the end user and are logged instead
+/// Convert a FacquestError to a string for display - some errors like HackneyError are not very helpful to the end user and are logged instead
 pub fn error_to_string(err: FacquestError) -> String {
   case err {
     URLParseError -> "Invalid URL provided, unable to parse."
@@ -193,6 +195,19 @@ fn append_body(body: String, state: Request(String)) -> Request(String) {
   |> request.set_body(body)
 }
 
+pub fn extract_body(response: FacquestResponse(a)) -> a {
+  response.body
+}
+
+pub fn extract_headers(response: FacquestResponse(a)) -> Pairs {
+  response.headers
+}
+
+pub fn extract_status_code(response: FacquestResponse(a)) -> Int {
+  response.status
+}
+
+/// Core function for sending requests, you would normally use the `get`, `post`, `put`, `patch`, or `delete` functions instead
 pub fn send(
   method method: Method,
   url url: Url,
