@@ -1,17 +1,17 @@
 name = "falcon"
-version = "1.0.0"
+version = "1.0.1"
 gleam = ">= 0.33.0"
 
 # Fill out these fields if you intend to generate HTML documentation or publish
 # your project to the Hex package manager.
 #
-description = "A smoother way to send HTTP requests in Gleam, an abstraction over Hackney - see the readme for important notes!"
+description = "A smoother way to send HTTP requests in Gleam with Axios-like APIs; an abstraction over Hackney."
 licences = ["Apache-2.0"]
 repository = { type = "github", user = "trulyao", repo = "falcon" }
 # links = [{ title = "Website", href = "https://gleam.run" }]
 
 [dependencies]
-gleam_stdlib = "~> 0.34"
+gleam_stdlib = "~> 0.34 or ~> 1.0"
 gleam_http = "~> 3.5"
 hackney = "~> 1.20"
 gleam_json = "~> 0.7"
