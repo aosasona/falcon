@@ -256,4 +256,13 @@ pub fn merge_opts_test() {
   |> extract_timeouts
   |> list.last
   |> should.equal(Ok(Some(10_000)))
+
+  // Test for case sensitivity in headers
+  let new_opts =
+    new(Url("http://example.com"), [#("X-Api-Key", "default")], Some(5000))
+    |> merge_opts([Headers([#("X-AnoTher-Mixed-Case", "test")])])
+
+  new_opts
+  |> extract_headers
+  |> should.equal([#("x-api-key", "default"), #("x-another-mixed-case", "test")])
 }

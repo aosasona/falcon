@@ -30,7 +30,8 @@ pub fn new(
   headers headers: Pairs,
   timeout timeout: Option(Int),
 ) -> Client {
-  Client(base_url: base_url, headers: headers, timeout: timeout)
+  let normalized_headers = normalise_headers(headers)
+  Client(base_url: base_url, headers: normalized_headers, timeout: timeout)
 }
 
 fn filter_opts(opts: Opts, keep_headers keep_headers: Bool) -> Opts {
@@ -46,6 +47,10 @@ fn filter_opts(opts: Opts, keep_headers keep_headers: Bool) -> Opts {
       _ -> True
     }
   })
+}
+
+fn normalise_headers(headers: Pairs) -> Pairs {
+  list.map(headers, with: fn(pair) { #(string.lowercase(pair.0), pair.1) })
 }
 
 pub fn extract_headers(opts: Opts) -> List(#(String, String)) {
