@@ -3,6 +3,8 @@ import falcon/core.{
 }
 import gleam/bool
 import gleam/list
+import gleam/string
+import gleam/result
 import gleam/http.{type Method, Delete, Get, Patch, Post, Put}
 import gleam/option.{type Option, None, Some}
 import falcon/hackney.{Timeout}
@@ -28,7 +30,8 @@ pub fn new(
   headers headers: Pairs,
   timeout timeout: Option(Int),
 ) -> Client {
-  Client(base_url: base_url, headers: headers, timeout: timeout)
+  let normalized_headers = normalise_headers(headers)
+  Client(base_url: base_url, headers: normalized_headers, timeout: timeout)
 }
 
 fn filter_opts(opts: Opts, keep_headers keep_headers: Bool) -> Opts {
@@ -46,6 +49,10 @@ fn filter_opts(opts: Opts, keep_headers keep_headers: Bool) -> Opts {
   })
 }
 
+fn normalise_headers(headers: Pairs) -> Pairs {
+  list.map(headers, with: fn(pair) { #(string.lowercase(pair.0), pair.1) })
+}
+
 pub fn extract_headers(opts: Opts) -> List(#(String, String)) {
   opts
   |> list.map(fn(opt) {
@@ -59,17 +66,29 @@ pub fn extract_headers(opts: Opts) -> List(#(String, String)) {
 
 /// This is used internally to merge the client options with the request options, it is only exposed for testing purposes
 pub fn merge_opts(client: Client, opts: Opts) -> Opts {
-  // There is a chance this will cause problems if you pass in a timeout in the client and another timeout in the options simply because we are not filtering out duplicates at the moment seeing as it might be too expensive to do that with every single request (it is nested - we'd have to look into opts and then filter out timeout from every single client options before putting them back together)
   let new_opts = case client.timeout {
-    Some(timeout) -> list.concat([[ClientOptions([Timeout(timeout)])], opts])
+    Some(timeout) -> {
+      // If there is a timeout in the client options, we want to ignore it if there is a timeout in the request options
+      let has_timeout =
+        list.find(opts, fn(opt) {
+          case opt {
+            ClientOptions([Timeout(_)]) -> True
+            _ -> False
+          }
+        })
+        |> result.is_ok
+
+      use <- bool.guard(when: has_timeout, return: opts)
+      list.concat([[ClientOptions([Timeout(timeout)])], opts])
+    }
     None -> opts
   }
 
-  // Merge all headers into one list
   let headers =
     new_opts
     |> filter_opts(keep_headers: True)
     |> extract_headers
+    |> normalise_headers
     |> fn(headers) { list.concat([client.headers, headers]) }
 
   // Remove all headers from the original list and replace with the merged list

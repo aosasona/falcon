@@ -93,19 +93,21 @@ pub fn error_to_string(err: FalconError) -> String {
 }
 
 fn with_leading_slash(path: String) -> String {
-  {
+  let path = {
     use <- bool.guard(when: string.starts_with(path, "/"), return: path)
     "/" <> path
   }
-  |> string.trim
+
+  string.trim(path)
 }
 
 fn without_trailing_slash(path: String) -> String {
-  {
+  let path = {
     use <- bool.guard(when: !string.ends_with(path, "/"), return: path)
     string.slice(path, 0, string.length(path) - 1)
   }
-  |> string.trim
+
+  string.trim(path)
 }
 
 pub fn append_path(url: Url, path: String) -> Url {

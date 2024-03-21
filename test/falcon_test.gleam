@@ -237,7 +237,7 @@ pub fn merge_opts_test() {
   |> result.unwrap(None)
   |> should.equal(None)
 
-  // Test that all timeouts are kept if set
+  // Test that only the new timeout is used
   let new_opts =
     new(Url("http://example.com"), [], Some(15_000))
     |> merge_opts([ClientOptions([Timeout(30_000)])])
@@ -248,7 +248,7 @@ pub fn merge_opts_test() {
 
   new_opts
   |> extract_timeouts
-  |> should.equal([Some(15_000), Some(30_000)])
+  |> should.equal([Some(30_000)])
 
   // Test that the last timeout provided by the user in the request itself is used instead of the default
   new(Url("http://example.com"), [], Some(15_000))
@@ -256,4 +256,13 @@ pub fn merge_opts_test() {
   |> extract_timeouts
   |> list.last
   |> should.equal(Ok(Some(10_000)))
+
+  // Test for case sensitivity in headers
+  let new_opts =
+    new(Url("http://example.com"), [#("X-Api-Key", "default")], Some(5000))
+    |> merge_opts([Headers([#("X-AnoTher-Mixed-Case", "test")])])
+
+  new_opts
+  |> extract_headers
+  |> should.equal([#("x-api-key", "default"), #("x-another-mixed-case", "test")])
 }
