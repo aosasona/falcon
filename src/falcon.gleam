@@ -3,6 +3,8 @@ import falcon/core.{
 }
 import gleam/bool
 import gleam/list
+import gleam/string
+import gleam/result
 import gleam/http.{type Method, Delete, Get, Patch, Post, Put}
 import gleam/option.{type Option, None, Some}
 import falcon/hackney.{Timeout}
@@ -59,17 +61,29 @@ pub fn extract_headers(opts: Opts) -> List(#(String, String)) {
 
 /// This is used internally to merge the client options with the request options, it is only exposed for testing purposes
 pub fn merge_opts(client: Client, opts: Opts) -> Opts {
-  // There is a chance this will cause problems if you pass in a timeout in the client and another timeout in the options simply because we are not filtering out duplicates at the moment seeing as it might be too expensive to do that with every single request (it is nested - we'd have to look into opts and then filter out timeout from every single client options before putting them back together)
   let new_opts = case client.timeout {
-    Some(timeout) -> list.concat([[ClientOptions([Timeout(timeout)])], opts])
+    Some(timeout) -> {
+      // If there is a timeout in the client options, we want to ignore it if there is a timeout in the request options
+      let has_timeout =
+        list.find(opts, fn(opt) {
+          case opt {
+            ClientOptions([Timeout(_)]) -> True
+            _ -> False
+          }
+        })
+        |> result.is_ok
+
+      use <- bool.guard(when: has_timeout, return: opts)
+      list.concat([[ClientOptions([Timeout(timeout)])], opts])
+    }
     None -> opts
   }
 
-  // Merge all headers into one list
   let headers =
     new_opts
     |> filter_opts(keep_headers: True)
     |> extract_headers
+    |> normalise_headers
     |> fn(headers) { list.concat([client.headers, headers]) }
 
   // Remove all headers from the original list and replace with the merged list
